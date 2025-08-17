@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import Breadcrumb from '../../components/atoms/Breadcrumb';
-import Button from '../../components/atoms/Button';
-import Title from '../../components/atoms/Title';
-import FeatureList from '../../components/molecules/FeatureList';
+import Breadcrumb from '../components/atoms/Breadcrumb';
+import Button from '../components/atoms/Button';
+import Title from '../components/atoms/Title';
+import FeatureList from '../components/molecules/FeatureList';
 import { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
-import thankyouAnimation from '../../lottie/Success Check.json';
-import { baseImage } from '../../config/Api';
+import thankyouAnimation from '../lottie/Success Check.json';
+import { baseImage } from '../config/Api';
 
 
 
@@ -21,16 +21,17 @@ export default function ThankYouPage() {
     },
   ];
 
-  const [orderData, setOrderData] = useState(null);
+  const [orderData, setOrderData] = useState(() => {
+    const stored = sessionStorage.getItem("checkout_data");
+    return stored ? JSON.parse(stored) : null;
+  });
   const [showAnimation, setShowAnimation] = useState(true);
 
   const navigate = useNavigate();
 
   useEffect(() => {
     const stored = sessionStorage.getItem('checkout_data');
-    if (stored) {
-      setOrderData(JSON.parse(stored));
-    } else {
+    if (!stored) {
       navigate('/');
     }
   }, []);
@@ -38,9 +39,9 @@ export default function ThankYouPage() {
   if (!orderData) return null;
 
   // Extract data from order
-  const { cart, orderSummary, res, productData } = orderData;
+  const { cart, orderSummary, res, productData, currency } = orderData;
   const isCartPurchase = !!cart;
-  
+
   // For single product purchase
   const product = productData?.data?.product;
   const variants = productData?.data?.product_variants;
@@ -56,14 +57,20 @@ export default function ThankYouPage() {
   };
 
   // Calculate total quantity for cart
-  const totalCartQuantity = isCartPurchase 
+  const totalCartQuantity = isCartPurchase
     ? cart.details.reduce((sum, item) => sum + item.quantity, 0)
     : orderSummary.qty;
 
-  // Calculate total price for cart
-  const totalCartPrice = isCartPurchase
-    ? cart.details.reduce((sum, item) => sum + item.total_price, 0)
-    : res.total;
+  const cartLength = isCartPurchase
+    ? cart.details.length
+    : 1;
+
+
+  const subTotal = cart?.subtotal;
+  const shipping = cart?.shipping;
+  const tax = cart?.tax;
+  const totals = isCartPurchase ? cart.total : res.total;
+
 
   return (
     <div className='bg-[#f8fafb]'>
@@ -82,7 +89,7 @@ export default function ThankYouPage() {
             <div className='rounded-lg border border-[var(--border-bg)] text-center space-y-2 bg-white min-h-[40vh] flex items-center justify-center flex-col gap-[10px] mb-[20px]' data-aos='fade-up' data-aos-delay='100'>
               <h2 className='text-2xl max-md:text-xl text-[#404145] font-semibold'>
                 تم إتمام طلبك <span className='text-[var(--second)]'>بنجاح !</span>
-              </h2> 
+              </h2>
               <p className='text-base text-[#768497] max-w-[320px] w-full' data-aos='fade-up' data-aos-delay='200'>
                 تم استلام طلبك و سنتواصل معك في أقرب فرصة. يرجى الانتظار لحين تلقي مكالمتنا.
               </p>
@@ -101,10 +108,10 @@ export default function ThankYouPage() {
                       const productVariants = cartProduct?.product_variants || [];
                       return (
                         <div key={index} className='flex items-center mt-4 max-md:gap-[10px] gap-[30px]' data-aos='fade-right' data-aos-delay={300 + (index * 100)}>
-                          <img 
-                            src={baseImage + cartProduct?.medias?.[0]?.url || '/placeholder-product.jpg'} 
-                            alt={cartProduct?.title} 
-                            className='w-[88px] max-md:w-[60px] max-md:h-[45px] h-[60px] rounded-md object-cover' 
+                          <img
+                            src={baseImage + cartProduct?.medias?.[0]?.url || '/placeholder-product.jpg'}
+                            alt={cartProduct?.title}
+                            className='w-[88px] max-md:w-[60px] max-md:h-[45px] h-[60px] rounded-md object-cover'
                           />
                           <div className='flex-1 max-sm:flex-col max-sm:items-start flex items-center justify-between text-sm'>
                             <div className="flex-1 space-y-2">
@@ -113,12 +120,12 @@ export default function ThankYouPage() {
                               {/* Display selected variants */}
                               {item.options?.map((opt, i) => (
                                 <p key={i} className='text-sm inline-block mx-1 text-gray-500'>
-                                  {getOptionName(productVariants, opt)} 
+                                  {getOptionName(productVariants, opt)}
                                 </p>
                               ))}
                             </div>
                             <p className='text-base text-[#123770] text-nowrap'>
-                              {item.total_price} {res?.currency}
+                              {item.total_price.toFixed(2)} {currency}
                             </p>
                           </div>
                         </div>
@@ -134,12 +141,12 @@ export default function ThankYouPage() {
                           {/* Display selected variants */}
                           {selectedOptions.map((opt, i) => (
                             <p key={i} className='text-sm inline-block mx-1 text-gray-500'>
-                              {getOptionName(variants, opt)} 
+                              {getOptionName(variants, opt)}
                             </p>
                           ))}
                         </div>
                         <p className='text-base text-[#123770] text-nowrap'>
-                          {res.total} {res.currency}
+                          {res.total.toFixed(2)} {res.currency}
                         </p>
                       </div>
                     </div>
@@ -151,20 +158,20 @@ export default function ThankYouPage() {
                   <div className='bg-white border border-[var(--border-bg)] p-4 rounded-lg space-y-2' data-aos='fade-right' data-aos-delay='400'>
                     <Title cn='border-b !mb-[20px] border-b-[var(--border-bg)] pb-2' title1='بيانات ' title2='التوصيل' />
 
-                    <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='450'>
+                    {orderSummary.name && <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='450'>
                       <span>اسم العميل</span>
                       <span className='text-[#A6AFB9] text-sm'>{orderSummary.name}</span>
-                    </div>
+                    </div>}
 
-                    <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='500'>
+                    {orderSummary.phone && <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='500'>
                       <span>رقم الجوال</span>
                       <span className='text-[#A6AFB9] text-sm'>{orderSummary.phone}</span>
-                    </div>
+                    </div>}
 
-                    <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='550'>
+                    {orderSummary.delivery_address && <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='550'>
                       <span>العنوان</span>
                       <span className='text-[#A6AFB9] text-sm'>{orderSummary.delivery_address}</span>
-                    </div>
+                    </div>}
 
                     {orderSummary.zip_code && (
                       <div className='text-base text-[#838BA1] flex justify-between' data-aos='fade-right' data-aos-delay='600'>
@@ -187,27 +194,44 @@ export default function ThankYouPage() {
 
                 <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='350'>
                   <span>عدد المنتجات</span>
-                  <span className='text-[var(--second)] text-sm'>{totalCartQuantity} منتج</span>
+                  <span className='text-[var(--second)] text-sm'>{cartLength} منتج</span>
                 </div>
 
                 <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='400'>
                   <span>اجمالى المنتجات</span>
                   <span className='text-[var(--main)] text-sm'>
-                    {totalCartPrice} {res?.currency}
+                    {totalCartQuantity} قطع
                   </span>
                 </div>
 
-                <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='450'>
+                {isCartPurchase && <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='450'>
                   <span>المبلغ المستحق</span>
                   <span className='text-[var(--main)] text-sm'>
-                    {totalCartPrice} {res?.currency}
+                    {subTotal.toFixed(2)} {currency}
                   </span>
-                </div>
+                </div>}
+
+
+                {isCartPurchase && <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='500'>
+                  <span>الضريبة</span>
+                  <span className='text-[var(--second)] text-sm'>
+                    {tax.toFixed(2)} {currency}
+                  </span>
+                </div>}
+
+
+                {isCartPurchase && <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='500'>
+                  <span>تكلفة الشحن</span>
+                  <span className='text-[var(--second)] text-sm'>
+                    {shipping.toFixed(2)} {currency}
+                  </span>
+                </div>}
+
 
                 <div className='!mt-[20px] text-base text-[#838BA1] flex justify-between' data-aos='fade-left' data-aos-delay='500'>
                   <span>المبلغ الاجمالى</span>
                   <span className='text-[var(--second)] text-sm'>
-                    {totalCartPrice} {res?.currency}
+                    {totals.toFixed(2)} {currency}
                   </span>
                 </div>
               </div>
@@ -220,3 +244,4 @@ export default function ThankYouPage() {
     </div>
   );
 }
+
